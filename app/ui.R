@@ -11,18 +11,24 @@ dashboardPage(
   sidebar = dashboardSidebar(
     
     sidebarMenu(
+      
       menuItem("Home", tabName = "home", icon = icon("home")),
+      
       menuItem("Upload Data", tabName = "inputdata", icon = icon("upload")),
+      
       menuItem("Exploratory Analysis", tabName = "exploratoryAnalysis",
-               icon = icon("wrench")),
+               icon = icon("wrench"),
+               menuSubItem("PCA",tabName = "pca", icon = icon("figma")),
+               menuSubItem("Heatmaps",tabName = "heatmaps", icon = icon("stroopwafel"))),
+      
       menuItem("Subpathway Analysis", tabName = "subpathAnalysis",
                icon = icon("pen-nib")),
       menuItem("Pairwise Analysis", tabName = "pairwiseAnalysis",
                icon = icon("brush"))
       
-    )
+    ),
     
-  ),
+  collapsed = TRUE),
   
   
   body = dashboardBody(
@@ -30,7 +36,10 @@ dashboardPage(
     tabItems(
       
       tabItem("inputdata",
-              source("ui-tab-inputdata.R", local=TRUE)$value)
+              source("ui-tab-inputdata.R", local=TRUE)$value),
+      
+      tabItem("exploratoryAnalysis",
+              source("ui-tab-expAnalysis.R", local=TRUE)$value)
       
     )
     

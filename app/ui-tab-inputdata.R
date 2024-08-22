@@ -70,7 +70,25 @@ fluidRow(
            collapsed = TRUE,
            closable = FALSE,
            DT::dataTableOutput("standData")
-         )
+         ),
+         
+         bs4Card(
+           width = 12,
+           inputID = "descriptiveTable",
+           title = "Sampling Distribution",
+           
+           column(width = 6,
+                  varSelectInput("includedVarsDist","Select Which Variables to Include",
+                              data=NULL,
+                              multiple = TRUE)),
+         
+           column(width = 4,
+                  varSelectInput("stratVarDist","Stratify By",
+                              data = NULL,
+                              multiple = FALSE)),
+           
+          verbatimTextOutput("distTable")
+           )
          
          )
 )

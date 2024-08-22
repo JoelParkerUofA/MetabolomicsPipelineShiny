@@ -11,7 +11,9 @@ library(patchwork)
 library(ggraph)
 library(fresh)
 library(MetabolomicsPipeline)
-
+library(table1)
+library(SummarizedExperiment)
+library(reshape2)
 
 # for EDA report
 library(reshape2)

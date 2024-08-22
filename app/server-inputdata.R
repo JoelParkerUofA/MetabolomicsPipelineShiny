@@ -17,8 +17,19 @@ dat<- reactive({
   
 })
 
+## Update options for distribution table ---
+observeEvent(dat(),{
+  updateVarSelectInput(inputId = "includedVarsDist",
+                       data = as.data.frame(SummarizedExperiment::colData(dat())))
+})
 
-## ouput tables -----
+
+observeEvent(dat(),{ 
+            updateVarSelectInput(inputId = "stratVarDist",
+             data = as.data.frame(SummarizedExperiment::colData(dat())))
+  } )
+
+## output tables -----
 
 output$sampleMetadata <- DT::renderDT({
  samps <-  as.data.frame(SummarizedExperiment::colData(dat()))
@@ -42,4 +53,22 @@ output$standData <- DT::renderDataTable({
   
   datatable(norm, 
             options = list(scrollX = TRUE))
+  
+})
+
+
+output$distTable <- renderPrint({
+  
+    
+  
+   #charForm <- do.call(paste,c(X, sep="+"))
+   
+   #form <- as.formula(paste0("~",charForm))
+   
+   
+   tabTest <- table1(~,
+                    data = as.data.frame(colData(dat())))
+
+  
+
 })
