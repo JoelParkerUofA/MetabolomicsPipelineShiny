@@ -1,4 +1,8 @@
 fluidRow(
+  
+  # Include CSS for table formatting
+  includeCSS(system.file(package="table1", "table1_defaults_1.0/table1_defaults.css")),
+  
   column(3,
          
          box(width = 12,
@@ -78,8 +82,8 @@ fluidRow(
            title = "Sampling Distribution",
            
            column(width = 6,
-                  varSelectInput("includedVarsDist","Select Which Variables to Include",
-                              data=NULL,
+                  selectInput("includedVarsDist","Select Which Variables to Include",
+                              choices =NULL,
                               multiple = TRUE)),
          
            column(width = 4,
@@ -87,7 +91,7 @@ fluidRow(
                               data = NULL,
                               multiple = FALSE)),
            
-          verbatimTextOutput("distTable")
+            htmlOutput("distTable")
            )
          
          )

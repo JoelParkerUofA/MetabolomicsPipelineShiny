@@ -38,8 +38,8 @@ dashboardPage(
       tabItem("inputdata",
               source("ui-tab-inputdata.R", local=TRUE)$value),
       
-      tabItem("exploratoryAnalysis",
-              source("ui-tab-expAnalysis.R", local=TRUE)$value)
+      tabItem("pca",
+              source("ui-tab-pca.R", local=TRUE)$value)
       
     )
     

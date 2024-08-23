@@ -19,8 +19,8 @@ dat<- reactive({
 
 ## Update options for distribution table ---
 observeEvent(dat(),{
-  updateVarSelectInput(inputId = "includedVarsDist",
-                       data = as.data.frame(SummarizedExperiment::colData(dat())))
+  updateSelectInput(inputId = "includedVarsDist",
+                       choices  = names(as.data.frame(SummarizedExperiment::colData(dat()))))
 })
 
 
@@ -57,18 +57,28 @@ output$standData <- DT::renderDataTable({
 })
 
 
-output$distTable <- renderPrint({
+output$distTable <- renderUI({
   
-    
+    #X <- list("GROUP_NAME","TIME1")
   
-   #charForm <- do.call(paste,c(X, sep="+"))
+   charForm <- do.call(paste,c(as.list(input$includedVarsDist), sep="+"))
    
-   #form <- as.formula(paste0("~",charForm))
+   if(!is.null(input$stratVarDist)){
+     charForm = paste0(charForm,"|",input$stratVarDist)
+     }
+   
+   form <- as.formula(paste0("~",charForm))
    
    
-   tabTest <- table1(~,
+   tabTest <- table1(form,
                     data = as.data.frame(colData(dat())))
 
-  
+  tabTest
 
 })
+
+
+output$Test <- renderPrint({
+ class( input$includedVarsDist)
+})
+
