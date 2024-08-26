@@ -1,7 +1,7 @@
 fluidRow(
   column(3,
          box(label = "Controls",
-           ,width = 12,
+             width = 12,
              collapsible = FALSE,
              closable = FALSE,
              
