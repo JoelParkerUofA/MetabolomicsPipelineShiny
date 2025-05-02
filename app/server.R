@@ -1,3 +1,4 @@
+source("helpers.R")
 shinyServer(function(input, output, session) {
   
   #source("server-rightsidebar.R",local = TRUE)

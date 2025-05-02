@@ -16,6 +16,9 @@ dashboardPage(
       
       menuItem("Upload Data", tabName = "inputdata", icon = icon("upload")),
       
+      menuItem("Data Processing", tabName = "dataProcessing",
+               icon = icon("creative-commons-sampling")),
+      
       menuItem("Exploratory Analysis", tabName = "exploratoryAnalysis",
                icon = icon("wrench"),
                menuSubItem("PCA",tabName = "pca", icon = icon("figma")),
@@ -24,7 +27,9 @@ dashboardPage(
       menuItem("Subpathway Analysis", tabName = "subpathAnalysis",
                icon = icon("pen-nib")),
       menuItem("Pairwise Analysis", tabName = "pairwiseAnalysis",
-               icon = icon("brush"))
+               icon = icon("brush")),
+      menuItem("Subpathway Plots", tabName = "subpathwayPlots",
+               icon = icon("lines-leaning"))
       
     ),
     
