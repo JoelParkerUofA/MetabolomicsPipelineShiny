@@ -3,7 +3,7 @@
 ## Upload Data
 dat<- reactive({
   
-  if(input$example_data=='yes'){
+  if(input$example_data == 'yes'){
     data("demoDat", package = "MetabolomicsPipeline")
     
     dat <- demoDat

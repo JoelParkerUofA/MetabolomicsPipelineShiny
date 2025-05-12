@@ -44,10 +44,13 @@ dashboardPage(
     tabItems(
       
       tabItem("inputdata",
-              source("ui-tab-inputdata.R", local=TRUE)$value),
+              source("ui-tab-inputdata.R", local = TRUE)$value),
+      
+      tabItem("dataProcessing",
+              source("ui-tab-dataProcessing.R", local = TRUE)$value),
       
       tabItem("pca",
-              source("ui-tab-pca.R", local=TRUE)$value), 
+              source("ui-tab-pca.R", local = TRUE)$value), 
       
       tabItem("heatmaps", 
               source("ui-tab-heatmap.R", local = TRUE)$value),

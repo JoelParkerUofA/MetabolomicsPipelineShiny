@@ -1,7 +1,7 @@
 fluidRow(
   
   # Include CSS for table formatting
-  includeCSS(system.file(package="table1", "table1_defaults_1.0/table1_defaults.css")),
+  includeCSS(system.file(package = "table1", "table1_defaults_1.0/table1_defaults.css")),
   
   column(3,
          
@@ -18,20 +18,32 @@ fluidRow(
              uiOutput("space"),
              
              radioButtons("example_data","Do you want to use our example data?",
-                          choices = c("Yes"="yes",
-                                      "No, upload my own data"="user_data"),
+                          choices = c("Yes" = "yes",
+                                      "No, upload my own data" = "user_data"),
                           selected = "yes"),
              
              conditionalPanel("input.example_data=='user_data'",
-                              fileInput("userDat",
-                                        "Upload Metabolon Excel File (.xlsx)",
-                                        accept = ".xlsx"),
+                              fileInput("sample_metadata",
+                                        "Upload Sample Metadata",
+                                        accept = ".csv"),
+                              
+                              fileInput("chemAnno",
+                                        "Upload Chemical Annotation Data",
+                                        accept = ".csv"),
+                              
+                              fileInput("peak_data",
+                                        "Upload Peak Data",
+                                        accept = ".csv"),
+                              
+                              fileInput("normalizedData",
+                                        "Upload Normalized Data (optional)",
+                                        accept = ".csv")
                               ),
              
              actionButton("submit_data", 
                           "Submit", 
                           icon("paper-plane"),
-                          style="color: #fff; background-color: #CD0000; border-color: #9E0000")
+                          style = "color: #fff; background-color: #CD0000; border-color: #9E0000")
              
              )
          
@@ -66,6 +78,18 @@ fluidRow(
          
          box(
            width = 12,
+           inputId = "peakData",
+           title = "Peak Data",
+           status = "secondary",
+           solidHeader = FALSE,
+           collapsible = TRUE,
+           collapsed = TRUE,
+           closable = FALSE,
+           DT::dataTableOutput("peakData")
+         ),
+         
+         box(
+           width = 12,
            inputId = "standerdizedData",
            title = "Standardized Data",
            status = "secondary",
@@ -83,7 +107,7 @@ fluidRow(
            
            column(width = 6,
                   selectInput("includedVarsDist","Select Which Variables to Include",
-                              choices =NULL,
+                              choices = NULL,
                               multiple = TRUE)),
          
            column(width = 4,
@@ -91,8 +115,16 @@ fluidRow(
                               data = NULL,
                               multiple = FALSE)),
            
-            htmlOutput("distTable")
+           column(width = 12,
+                  actionButton("gen_dist_table", 
+                               "Generate Distribution Table", 
+                               icon("paper-plane"),
+                               status = "success"
+                               )
+           ),
+         
+           htmlOutput("distTable")
            )
          
-         )
+    )
 )
