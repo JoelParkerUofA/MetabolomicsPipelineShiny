@@ -26,18 +26,29 @@ fluidRow(
                               fileInput("sample_metadata",
                                         "Upload Sample Metadata",
                                         accept = ".csv"),
+                              selectInput("sample_names",
+                                          "Select Sample Name Column",
+                                          choices = c(NULL),
+                                          selected = NULL),
                               
                               fileInput("chemAnno",
                                         "Upload Chemical Annotation Data",
                                         accept = ".csv"),
-                              
+                              selectInput("chem_id", "Select Chemical ID",
+                                          choices = NULL, 
+                                          selected = NULL),
                               fileInput("peak_data",
                                         "Upload Peak Data",
                                         accept = ".csv"),
+                              radioButtons("preprocessing", 
+                                           "Would you like to use MetabolomicsPipelines preprocessing?",
+                                           choices = c("Yes" = "Yes", "No" = "No")),
+
                               
-                              fileInput("normalizedData",
-                                        "Upload Normalized Data (optional)",
-                                        accept = ".csv")
+                              conditionalPanel("input.preprocessing=='No'",
+                                               fileInput("normalizedData",
+                                                         "Upload Normalized Data",
+                                                         accept = ".csv"))
                               ),
              
              actionButton("submit_data", 
@@ -90,8 +101,8 @@ fluidRow(
          
          box(
            width = 12,
-           inputId = "standerdizedData",
-           title = "Standardized Data",
+           inputId = "normalizedData",
+           title = "Normalized Data",
            status = "secondary",
            solidHeader = FALSE,
            collapsible = TRUE,
