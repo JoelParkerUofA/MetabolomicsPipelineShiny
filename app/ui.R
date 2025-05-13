@@ -15,9 +15,7 @@ dashboardPage(
       menuItem("Home", tabName = "home", icon = icon("home")),
       
       menuItem("Upload Data", tabName = "inputdata", icon = icon("upload")),
-      
-      menuItem("Data Processing", tabName = "dataProcessing",
-               icon = icon("creative-commons-sampling")),
+
       
       menuItem("Exploratory Analysis", tabName = "exploratoryAnalysis",
                icon = icon("wrench"),
@@ -45,9 +43,6 @@ dashboardPage(
       
       tabItem("inputdata",
               source("ui-tab-inputdata.R", local = TRUE)$value),
-      
-      tabItem("dataProcessing",
-              source("ui-tab-dataProcessing.R", local = TRUE)$value),
       
       tabItem("pca",
               source("ui-tab-pca.R", local = TRUE)$value), 
