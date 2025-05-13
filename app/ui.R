@@ -50,7 +50,7 @@ dashboardPage(
       tabItem("heatmaps", 
               source("ui-tab-heatmap.R", local = TRUE)$value),
 
-      tabItem("subpathwayAnalysis",
+      tabItem("subpathAnalysis",
               source("ui-tab-subpath_analysis.R", local = TRUE)$value),
 
       tabItem("pairwiseAnalysis",

@@ -122,7 +122,7 @@ fluidRow(
                               multiple = TRUE)),
          
            column(width = 4,
-                  varSelectInput("stratVarDist","Stratify By",
+                  varSelectInput("stratVarDist","Stratify By (Optional)",
                               data = NULL,
                               multiple = FALSE)),
            

@@ -5,12 +5,15 @@ fluidRow(
              collapsible = FALSE,
              closable = FALSE,
              
-             selectInput('groupVars', "Column annotation variables",
+             selectInput('groupVars', "Annotation Variables",
                          choices = NULL, multiple = TRUE),
-             selectInput('stratVar', "Variable to stratifiy the plots by",
+             selectInput('stratVar', "Variable To Stratifiy The Plots By (Optional)",
                          choices = NULL, selected = NULL),
-             numericInput("metsNumber", "Number of Metabolites to include", 
-                          min = 1, value = 50)
+             numericInput("metsNumber", "Number Of Metabolites To Include", 
+                          min = 1, value = 50),
+           actionButton("generateHeatmap", "Generate Heatmap",
+                        icon("paper-plane"),
+                        style = "color: #fff; background-color: #CD0000; border-color: #9E0000")
              
          )),
   
@@ -20,7 +23,7 @@ fluidRow(
                  collapsible = FALSE,
                  closable = FALSE,
                  
-                 uiOutput("heatmap")
+                 plotOutput("heatmap")
                  
          )
          

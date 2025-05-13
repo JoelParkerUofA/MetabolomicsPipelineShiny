@@ -5,12 +5,41 @@ fluidRow(
              collapsible = FALSE,
              closable = FALSE,
              
-             selectInput('groupVars', "Column annotation variables",
-                         choices = NULL, multiple = TRUE),
-             selectInput('stratVar', "Variable to stratifiy the plots by",
+             selectInput('subpath_treat', "Select Treatment Variable",
+                         choices = NULL, multiple = FALSE),
+             selectInput('subpath_block', "Select Block Variable (Optional)",
                          choices = NULL, selected = NULL),
-             numericInput("metsNumber", "Number of Metabolites to include", 
-                          min = 1, value = 50)
+             selectInput('subpath_strat', "Select Stratification Variable (Optional)",
+                         choices = NULL, selected = NULL),
+             actionButton("generateSubpathAnalysis", "Run Subpathway Analysis",
+                          icon("paper-plane"),
+                          style = "color: #fff; background-color: #CD0000; border-color: #9E0000")
              
-         ))
+         )),
+  
+  column(9,
+         bs4Card(width = 12,
+                 label = "Significant Subpathways by Model",
+                 collapsible = FALSE,
+                 closable = FALSE,
+                 
+                 uiOutput("subpath_by_model")
+                 ),
+         bs4Card(width = 12,
+                 collapsible = FALSE,
+                 closable = FALSE,
+                 label = "Subpathways within superpathways",
+                 uiOutput("subpath_within_superpath")
+                ),
+         bs4Card(width = 12,
+                 collapsible = FALSE,
+                 closable = FALSE,
+                 label = "Metabolites Within Subpathway",
+                 selectInput("subpath_subpathway", "Select Subpathway",
+                             choices = NULL, selected = NULL),
+                 uiOutput("met_within_subpathway")
+                 )
+                
+        )
 )
+
