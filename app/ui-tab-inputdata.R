@@ -72,6 +72,7 @@ fluidRow(
            collapsible = TRUE,
            collapsed = TRUE,
            closable = FALSE,
+           
            DT::dataTableOutput("sampleMetadata")
          ),
          
@@ -108,7 +109,7 @@ fluidRow(
            collapsible = TRUE,
            collapsed = TRUE,
            closable = FALSE,
-           DT::dataTableOutput("standData")
+           DT::dataTableOutput("normalizedData")
          ),
          
          bs4Card(
