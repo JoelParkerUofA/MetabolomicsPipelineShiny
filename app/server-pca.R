@@ -1,14 +1,24 @@
 ## Update options for distribution table ---
 observeEvent(dat(),{
-  updateSelectInput(inputId = "pcaColor",
-                    choices  = names(as.data.frame(SummarizedExperiment::colData(dat()))))
+  updateSelectInput(session,
+                    "pcaColor",
+                    choices  = names(as.data.frame(colData(dat()))))
 })
 
 
-output$PCAPlot <- renderPlot({
+observeEvent(input$generatePCA,{
   
-  metabolite_pca(dat(),
-                 meta_var = input$pcaColor
-  )
+  output$PCAPlot <- renderPlot({
+    # Run PCA
+    pca <- metabolite_pca(dat(),
+                          meta_var = input$pcaColor
+    )
+    
+    
+    # Show PCA
+    pca
+  })
   
 })
+
+
