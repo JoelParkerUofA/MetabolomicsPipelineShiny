@@ -7,7 +7,7 @@ fluidRow(
              
              selectInput("pair_model_vars", "Select Variables For Model",
                          choices = NULL, multiple = TRUE),
-             selectInput("pair_stat_var", "Select Variable To Stratify By (Optional).",
+             selectInput("pair_strat_var", "Select Variable To Stratify By (Optional).",
                          choices = NULL, selected = NULL),
              actionButton("generatePairwise", "Run Pairwise Analysis",
                           icon("paper-plane"),

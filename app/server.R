@@ -9,6 +9,8 @@ shinyServer(function(input, output, session) {
    source("server-heatmap.R",local = TRUE)
   
   source("server-subpathwayAnalysis.R", local = TRUE)
+  
+  source("server-pairwiseAnalysis.R", local = TRUE)
 
 }
 )
