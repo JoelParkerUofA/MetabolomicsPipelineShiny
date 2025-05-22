@@ -1,0 +1,950 @@
+---
+title: "Metabolomics Pipeline"
+format:
+  dashboard:
+    scrolling: true
+server: shiny
+---
+
+```{r}
+#| context: setup
+# for shiny
+library(bs4Dash)
+library(shiny)
+library(DT)
+library(plotly)
+library(shinyhelper)
+library(rmarkdown)
+library(tidyverse)
+library(shinyWidgets)
+library(patchwork)
+library(ggraph)
+library(fresh)
+library(MetabolomicsPipeline)
+library(table1)
+library(SummarizedExperiment)
+library(reshape2)
+
+# for EDA report
+library(reshape2)
+library(knitr)
+```
+
+
+
+# Data 
+## {.sidebar}
+```{r}
+#| title: Data Loading
+ radioButtons("example_data","Do you want to use our example data?",
+                          choices = c("Yes" = "yes",
+                                      "No, upload my own data" = "user_data"),
+                          selected = "yes")
+             
+             conditionalPanel("input.example_data=='user_data'",
+                              fileInput("sample_metadata",
+                                        "Upload Sample Metadata",
+                                        accept = ".csv"),
+                              selectInput("sample_names",
+                                          "Select Sample Name Column",
+                                          choices = c(NULL),
+                                          selected = NULL),
+                              
+                              fileInput("chemAnno",
+                                        "Upload Chemical Annotation Data",
+                                        accept = ".csv"),
+                              selectInput("chem_id", "Select Chemical ID",
+                                          choices = NULL, 
+                                          selected = NULL),
+                              fileInput("peak_data",
+                                        "Upload Peak Data",
+                                        accept = ".csv"),
+                              radioButtons("preprocessing", 
+                                           "Would you like to use MetabolomicsPipelines preprocessing?",
+                                           choices = c("Yes" = "Yes", "No" = "No")),
+
+                              
+                              conditionalPanel("input.preprocessing=='No'",
+                                               fileInput("normalizedData",
+                                                         "Upload Normalized Data",
+                                                         accept = ".csv"))
+                              )
+             
+             actionButton("submit_data", 
+                          "Submit", 
+                          icon("paper-plane"),
+                          style = "color: #fff; background-color: #CD0000; border-color: #9E0000")
+             
+```
+
+```{r generateData}
+#| context: server
+
+## Upload data
+dat <- eventReactive(input$submit_data, {
+  if(input$example_data == 'yes'){
+    data("demoSampleMeta", package = "MetabolomicsPipeline")
+    data("demoChemAnno", package = "MetabolomicsPipeline")
+    data("demoPeak", package = "MetabolomicsPipeline")
+    
+    dat <- create_met_se(chemical_annotation = demoChemAnno,
+                         sample_metadata = demoSampleMeta,
+                         peak_data = demoPeak,
+                         chemical_id = "CHEM_ID",
+                         sample_names = "PARENT_SAMPLE_NAME")
+    
+    dat <- median_standardization(dat, assay = "peak")
+    dat <- min_val_impute(dat, assay = "median_std") 
+    dat <- log_transformation(dat, assay = "min_impute")
+    
+    dat
+  }
+})
+
+
+
+# Update options for distribution table
+observeEvent(input$submit_data,{
+  req(dat())
+  
+  choices <- names(colData(dat()))
+  
+  updateSelectInput(session,
+                    inputId = "includedVarsDist",
+                    choices = c(choices),
+                    selected = if(input$example_data == "yes") c("GROUP_NAME", "TIME1"))
+  
+  updateSelectInput(session,
+                    inputId = "stratVarDist",
+                    choices = c("None", choices),
+                    selected = if(input$example_data == "yes") "Gender")
+  
+})
+
+```
+
+
+## {.tabset}
+
+```{r}
+#| title: Sample Metadata
+#| status: "secondary"
+#| fill: false
+
+
+DT::dataTableOutput("sampleMetadata")
+```
+
+```{r server-sampleMetadata}
+#| context: server
+
+output$sampleMetadata <- renderDT({
+  req(dat())
+  datatable(as.data.frame(dat()@colData),
+            filter = "top",
+            options = list(scrollX = TRUE))
+})
+
+```
+
+```{r}
+#| title: Chemical Annotation
+
+
+DT::dataTableOutput("chemicalAnno")
+```
+
+```{r server-chemicalAnnotation}
+#| context: server
+
+output$chemicalAnno <- renderDT({
+  req(dat())
+  datatable(as.data.frame(rowData(dat())),
+            filter = "top",
+            options = list(scrollX = TRUE))
+})
+```
+
+```{r}
+#| title: Peak Data
+
+
+DT::dataTableOutput("peakData")
+```
+
+```{r server-peakdata}
+#| context: server
+output$peakData <- renderDT({
+  req(dat())
+  datatable(as.data.frame(assay(dat(), "peak")),
+            filter = "top",
+            options = list(scrollX = TRUE))
+})
+```
+
+```{r}
+#| title: Normalized Data
+
+DT::dataTableOutput("normalizedData")
+```
+
+```{r server-normalizeddata}
+#| context: server
+
+output$normalizedData <- renderDT({
+  req(dat())
+  datatable(as.data.frame(assay(dat(), "normalized")),
+            filter = "top",
+            options = list(scrollX = TRUE))
+})
+
+```
+
+
+```{r}
+#| title: Sampling Distribution
+
+fluidRow(
+  column(4,
+         selectInput("includedVarsDist","Select Which Variables to Include",
+                              choices = NULL,
+                              multiple = TRUE)
+  ),
+  column(4,
+        varSelectInput("stratVarDist","Stratify By (Optional)",
+                              data = NULL,
+                              multiple = FALSE)
+  ),
+  column(4,
+         actionButton("gen_dist_table", 
+                      "Generate Distribution Table", 
+                      icon("paper-plane"),
+                      status = "success"
+         )
+  )
+)
+
+
+htmlOutput("distTable")
+
+```
+
+```{r server-distributiontable}
+#| context: server
+
+# Generate distribution table -------------
+observeEvent(input$gen_dist_table,{
+  form <- as.formula(
+    if(input$stratVarDist == "None"){
+      paste0("~ ", paste(input$includedVarsDist, collapse = " + "))
+    } else {
+      paste0("~ ", paste(input$includedVarsDist, collapse = " + "), " | ",
+             input$stratVarDist)
+    }
+    )
+  
+  output$distTable <- renderUI({
+    table1(form, data = colData(dat()))
+  })
+})
+```
+
+# Exploratory Analysis
+
+## PCA
+
+```{r ui-pca toolbar}
+#| content: card-toolbar
+
+selectInput('pcaColor', "PCA label variable", choices = NULL,
+                         selected = NULL)
+```
+```{r ui-pca}
+#| title: PCA
+
+actionButton("generatePCA", "Generate PCA Plot",
+                          icon("paper-plane"),
+                          style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
+
+plotOutput("PCAPlot")
+```
+
+
+```{r server-pca}
+#| context: server
+
+# Update PCA color options
+observeEvent(dat(),{
+  updateSelectInput(session,
+                    "pcaColor",
+                    choices  = names(as.data.frame(colData(dat()))),
+                    selected = if(input$example_data == "yes") "Gender" )
+})
+
+
+observeEvent(input$generatePCA,{
+  
+  output$PCAPlot <- renderPlot({
+    # Run PCA
+    pca <- metabolite_pca(dat(),
+                          meta_var = input$pcaColor
+    )
+    
+    
+    # Show PCA
+    pca
+  })
+  
+})
+```
+
+## Heatmap
+
+
+```{r}
+#| content: card-toolbar
+
+selectInput('groupVars', "Annotation Variables",
+                         choices = NULL, multiple = TRUE)
+
+selectInput('stratVar', "Variable To Stratifiy The Plots By (Optional)",
+                         choices = NULL, selected = NULL)
+
+numericInput("metsNumber", "Number Of Metabolites To Include", 
+                          min = 1, value = 50)
+
+conditionalPanel(
+  condition = "input.stratVar != 'None'",
+  selectInput("boxplot_stratum", "Select which strata you would like to veiw.",
+              choices = NULL, selected = NULL)
+)
+```
+
+```{r ui-heatmap}
+#| title: Heatmap
+
+actionButton("generateHeatmap", "Generate Heatmap",
+             icon("paper-plane"),
+             style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
+
+plotOutput("heatmap")
+```
+
+```{r server-heatmap}
+#| context: server
+
+# Update selectInput groupVars, stratVar choices based on the input data
+observeEvent(dat(), {
+  # Check if the input data is available
+  req(dat())
+  
+  choices <- colnames(colData(dat()))
+  
+  # Update the choices for groupVars and stratVar based on the input data
+  updateSelectInput(session, "groupVars", 
+                    choices = choices, 
+                    selected = if(input$example_data == "yes") c("GROUP_NAME", "TIME1"))
+  
+  updateSelectInput(session, "stratVar", 
+                    choices = c("None", choices), 
+                    selected = if(input$example_data == "yes") "Gender")
+})
+
+observeEvent(input$stratVar, {
+  req(dat())
+  
+  choices <- unique(colData(dat())[[input$stratVar]])
+  # Update the selectInput for boxplot_stratum with the selected values from colData(dat())
+  updateSelectInput(session, "boxplot_stratum", choices = choices)
+})
+
+# Make heatmap after generateHeatmap button is pushed using metabolite_heatmap
+observeEvent(input$generateHeatmap, {
+  # Check if the input data is available
+  req(dat())
+  
+  # Get the number of metabolites to include
+  metsNumber <- input$metsNumber
+  
+  # Get the selected grouping variables
+  groupVars <- input$groupVars
+  
+  # Call the metabolite_heatmap function with the selected parameters
+  output$heatmap <- renderPlot({
+     
+    if(input$stratVar == "None"){
+      metabolite_heatmap(dat(),
+                        top_mets = metsNumber,
+                        group_vars = groupVars,
+                        strat_var = NULL,
+                        caption = "Heatmap Arranged By Group and TIME",
+                        Assay = "normalized",
+                        !!!syms(groupVars))
+    } else{
+      
+      # Filter dat() by stratVar
+      dat_filtered <- dat()[,colData(dat())[[input$stratVar]] == input$boxplot_stratum]
+      
+      metabolite_heatmap(dat_filtered,
+                        top_mets = metsNumber,
+                        group_vars = groupVars,
+                        strat_var = NULL,
+                        caption = paste0("Heatmap Arranged By Group and TIME (", input$boxplot_stratum, ")"),
+                        Assay = "normalized",
+                        !!!syms(groupVars))
+    }
+  })
+})
+
+```
+
+# Subpatway Analysis
+
+## {.sidebar}
+
+```{r subpathway-analysis inputs}
+#| title: Subpathway Analysis Controls
+
+selectInput('subpath_treat', "Select Treatment Variable",
+                         choices = NULL, multiple = FALSE)
+
+selectInput('subpath_block', "Select Block Variable (Optional)",
+                         choices = NULL, selected = NULL)
+
+selectInput('subpath_strat', "Select Stratification Variable (Optional)",
+                         choices = NULL, selected = NULL)
+
+selectInput('subpath_superpath', "Select Superpathway Variable Name",
+                         choices = NULL, selected = NULL)
+
+selectInput('subpath_subpathway', "Select Subpathway Variable Name",
+                         choices = NULL, selected = NULL)
+
+
+selectInput('subpath_metabolite', "Select Metabolite ID Name",
+                         choices = NULL, selected = NULL)
+             
+actionButton("generateSubpathAnalysis", "Run Subpathway Analysis",
+                          icon("paper-plane"),
+                          style = "color: #fff; background-color: #CD0000; border-color: #9E0000")
+             
+
+```
+
+## {.tabset}
+
+
+```{r ui_significant_subpathways_by_model}
+#| title: Significant Subpathways by Model
+uiOutput("subpath_by_model")
+```
+
+```{r ui_subpath_within_superpath}
+#| title: Subpathways within superpathways
+
+uiOutput("subpath_within_superpath")
+```
+
+```{r ui_metabolites_within_subpathway}
+#| title: Metabolites Within Subpathway
+
+selectInput("subpath_subpathway_plot", "Select Subpathway",
+                             choices = NULL, selected = NULL)
+
+uiOutput("met_within_subpathway")
+```
+
+
+```{r server-subpathway_analysis}
+#| context: server
+# When submit_data is clicked, update subpath_treat, subpath_block, and subpath_strat
+# with the selected values from colData(dat()).
+#
+
+observeEvent(input$submit_data, {
+  req(dat())
+  
+  # Update the selectInput for subpath_treat with the selected values from colData(dat())
+  updateSelectInput(session, "subpath_treat", choices = colnames(colData(dat())),
+                    selected = if(input$example_data == "yes") "GROUP_NAME")
+  
+  # Update the selectInput for subpath_block with the selected values from colData(dat())
+  updateSelectInput(session, "subpath_block", choices = c("None",colnames(colData(dat()))),
+                    selected = if(input$example_data == "yes") "TIME1")
+  
+  # Update the selectInput for subpath_strat with the selected values from colData(dat())
+  updateSelectInput(session, "subpath_strat", choices = c("None",colnames(colData(dat()))),
+                    selected = if(input$example_data == "yes") "Gender")
+  
+  # Update subpath_subpathway with the selected values from rowData(dat())
+  updateSelectInput(session, "subpath_subpathway", choices = colnames(rowData(dat())),
+                    selected = if(input$example_data == "yes") "SUB_PATHWAY")
+  
+  # Update subpath_superpathway with the selected values from rowData(dat())
+  updateSelectInput(session, "subpath_superpath", choices = colnames(rowData(dat())),
+                    selected = if(input$example_data == "yes") "SUPER_PATHWAY")
+  
+  # Update subpath_metabolite with the selected values from rowData(dat())
+  updateSelectInput(session, "subpath_metabolite", choices = colnames(rowData(dat())),
+                    selected = if(input$example_data == "yes") "CHEMICAL_NAME")
+})
+
+# Update subpath_subpathway_plot with the selected values from rowData(dat())
+# when subpath_subpathway is updated
+observeEvent(input$subpath_subpathway, {
+  req(dat())
+  
+  # Update the selectInput for subpath_subpathway_plot with the selected values from rowData(dat())
+  updateSelectInput(session, "subpath_subpathway_plot", choices = rowData(dat())[[input$subpath_subpathway]])
+})
+
+
+# When generateSubpathAnalysis is clicked, run the subpathway analysis
+observeEvent(input$generateSubpathAnalysis, {
+  req(dat())
+  
+  # Get the selected values from the inputs
+  treat <- input$subpath_treat
+  block <- input$subpath_block
+  strat <- input$subpath_strat
+  superpathway <- input$subpath_superpath
+  subpathway <- input$subpath_subpathway
+  metabolite <- input$subpath_metabolite
+  
+  # run subpathway analsysis
+  analysis <- subpathway_analysis(dat(),
+                                  treat_var = treat,
+                                  block_var = block,
+                                  strat_var = strat,
+                                  Assay = "normalized",
+                                  subPathwayName = subpathway,
+                                  superPathwayName = superpathway,
+                                  chemName = metabolite
+  )
+  
+  output$subpath_by_model <- renderUI({
+    req(analysis)
+    
+    HTML(subpath_by_model(analysis))
+  })
+  
+  output$subpath_within_superpath <- renderUI({
+    req(analysis)
+    
+    HTML(subpath_within_superpath(analysis))
+  })
+  output$met_within_subpathway <- renderUI({
+    req(analysis)
+    req(input$subpath_subpathway_plot)
+    
+    tables <- met_within_sub(analysis,
+                             subpathway = input$subpath_subpathway_plot
+    )
+    # Combine and return as HTML
+    HTML(paste(tables, collapse = "<br><br>"))
+  })
+  
+})
+  
+
+```
+
+# Pairwise Analysis
+
+## {.sidebar}
+
+
+```{r sidebar-pairwise}
+ selectInput("pair_model_vars", "Select Variables For Model",
+            choices = NULL, multiple = TRUE)
+
+selectInput("pair_strat_var", "Select Variable To Stratify By (Optional).",
+            choices = NULL, selected = NULL)
+
+
+actionButton("generatePairwise", "Run Pairwise Analysis",
+            icon("paper-plane"),
+            style = "color: #fff; background-color: #CD0000; border-color: #9E0000")
+
+        
+
+```
+
+## {.tabset}
+```{r ui-pairwise-est-heatmap}
+#| title: Fold Change Heatmap
+
+conditionalPanel(
+  condition = "input.pair_strat_var != 'None'",
+  selectInput("pairwise_stratum_est", "Select which strata you would like to veiw.",
+              choices = NULL, selected = NULL)
+)
+
+plotlyOutput("pairwise_foldChangeHeatmap")
+```
+
+```{r ui-pairwise-p-heatmap}
+#| title: P-value Heatmap
+
+conditionalPanel(
+  condition = "input.pair_strat_var != 'None'",
+  selectInput("pairwise_stratum_p", "Select which strata you would like to veiw.",
+              choices = NULL, selected = NULL)
+)
+
+plotlyOutput("pairwise_pvalueHeatmap")
+
+```
+
+```{r server-pairwise}
+#| context: server
+
+# When dat() is loaded update selectInput for pair_model_vars, pair_strat_var
+observeEvent(dat(), {
+  req(dat())
+  
+  # Update the selectInput for pair_model_vars with the selected values from colData(dat())
+  updateSelectInput(session, "pair_model_vars", choices = colnames(colData(dat())),
+                    selected = if(input$example_data == "yes") c("GROUP_NAME", "TIME1"))
+  
+  # Update the selectInput for pair_strat_var with the selected values from colData(dat())
+  updateSelectInput(session, "pair_strat_var", choices = c("None",colnames(colData(dat()))),
+                    selected = if(input$example_data == 'yes') "Gender")
+})
+
+# Update selectInput for pairwise_stratum_est and pairwise_stratum_p when pair_strat_var is updated
+observeEvent(input$pair_strat_var, {
+  req(dat())
+  
+  choices <- unique(colData(dat())[[input$pair_strat_var]])
+  # Update the selectInput for pairwise_stratum_est with the selected values from colData(dat())
+  updateSelectInput(session, "pairwise_stratum_est", choices = choices)
+  
+  # Update the selectInput for pairwise_stratum_p with the selected values from colData(dat())
+  updateSelectInput(session, "pairwise_stratum_p", choices = choices)
+})
+
+# When generatePairwise is clicked, run the pairwise analysis
+# Global reactive for analysis results
+analysis <- reactiveVal(NULL)
+
+# Run analysis when button is clicked
+observeEvent(input$generatePairwise, {
+  req(dat())
+  
+  pair_form <- paste(input$pair_model_vars, collapse = "*")
+  strat_var <- if (input$pair_strat_var == "None") NULL else input$pair_strat_var
+  
+  # Set the result of the analysis
+  withProgress(message = "Running Pairwise Analysis ...", {
+    result <- metabolite_pairwise(dat(), form = pair_form, strat_var = strat_var)
+    analysis(result)  # Set the reactiveVal
+  })
+})
+
+  ###########################################
+  # Create est heatmap from analysis results
+  ##########################################
+output$pairwise_foldChangeHeatmap <- renderPlotly({
+  req(analysis())
+  
+  if(input$pair_strat_var != "None"){
+    withProgress(message = "Creating fold change heatmap ..", value = .5,{
+      met_est_heatmap(analysis()[[input$pairwise_stratum_est]],
+                   dat(),
+                   interactive = TRUE,
+                   show_rownames = FALSE,
+                   plotlyTitle = "",
+                   main = "")
+    })
+  } else{
+    withProgress(message = "Creating fold change heatmap ..", value = .5,{
+      met_est_heatmap(analysis(),
+                   dat(),
+                   interactive = TRUE,
+                   show_rownames = FALSE,
+                   plotlyTitle = "",
+                   main = "")
+    })
+  }
+})
+
+
+###########################################
+# Create p-value heatmap from analysis results
+##########################################
+output$pairwise_pvalueHeatmap <- renderPlotly({
+  req(analysis())
+  
+  if(input$pair_strat_var != "None"){
+    withProgress(message = "Creating p-value heatmap ..", value = .5,{
+      met_p_heatmap(analysis()[[input$pairwise_stratum_p]],
+                   dat(),
+                   interactive = TRUE,
+                   show_rownames = FALSE,
+                   plotlyTitle = "",
+                   main = "")
+    })
+  } else{
+    withProgress(message = "Creating p-value heatmap ..", value = .5,{
+      met_p_heatmap(analysis(),
+                   dat(),
+                   interactive = TRUE,
+                   show_rownames = FALSE,
+                   plotlyTitle = "",
+                   main = "")
+    })
+  }
+})
+  
+
+
+```
+
+# Subpathway Plots
+
+## {.sidebar}
+```{r ui-subpathway_plots_sidebar}
+#| title: Subpathway Plots Controls
+selectInput('subpathway_var', "Select Subpathway Variable Name (From Chemical Annotation)",
+                         choices = NULL, multiple = FALSE)
+
+selectInput('subpathway_subpath', "Select Subpathway",
+                         choices = NULL, multiple = FALSE)
+
+selectInput('subpathway_treat', "Select Treatment Variable",
+                         choices = NULL, multiple = TRUE)
+selectInput('subpathway_block', "X Axis",
+                         choices = NULL, selected = NULL)
+
+selectInput("subpathway_chemName", "Metabolite Name Variable (From Chemical Annotation)",
+                         choices = NULL, selected = NULL)
+
+```
+
+```{r server-subpathway_sidebar}
+#| context: server
+
+# When submit_data is clicked, require dat() to be loaded, and update
+# subpathway_box, subpathway_box_treat, subpathway_box_block, subpathway_box_chemName
+observeEvent(input$submit_data,{
+  req(dat())
+  
+  choices_chem <- names(rowData(dat())) 
+  
+  choices_samps <- names(colData(dat()))
+
+  updateSelectInput(session,
+                    inputId = "subpathway_var",
+                    choices = c(choices_chem),
+                    selected = if(input$example_data == "yes") "SUB_PATHWAY")
+  
+  updateSelectInput(session,
+                    inputId = "subpathway_treat",
+                    choices = c(choices_samps),
+                    selected = if(input$example_data == "yes") "GROUP_NAME")
+  
+  updateSelectInput(session,
+                    inputId = "subpathway_block",
+                    choices = c("None", choices_samps),
+                    selected = if(input$example_data == "yes") "TIME1")
+  
+  updateSelectInput(session,
+                    inputId = "subpathway_chemName",
+                    choices = c(choices_chem),
+                    selected = if(input$example_data == "yes") "CHEMICAL_NAME")
+})
+
+observeEvent(input$subpathway_var, {
+  req(dat())
+  
+  # Update the selectInput for subpathway_subpathway with the selected values from rowData(dat())
+  updateSelectInput(session, "subpathway_subpath", choices = rowData(dat())[[input$subpathway_var]])
+})
+
+
+```
+
+
+## {.tabset}
+```{r ui subpathay_plots toolbar}
+#| content: card-toolbar
+
+selectInput("subpathway_filter", "Choose Variable To Filter Samples By",
+             choices = c("None" = "None"),
+             selected = "none")
+
+conditionalPanel(
+  condition = "input.subpathway_filter != 'None'",
+  selectInput("subpathway_filter_val", "Variable Value",
+              choices = NULL, selected = NULL)
+)
+
+```
+
+
+```{r server-subpath-toolbar}
+#| context: server
+
+# Update subpathway_fileter_box choices when submit data is clicked
+observeEvent(input$submit_data,{
+  req(dat())
+  
+  choices <- names(colData(dat()))
+  
+  updateSelectInput(session,
+                    inputId = "subpathway_filter",
+                    choices = c("None",choices))
+})
+
+observeEvent(input$subpathway_filter, {
+  req(dat())
+  
+  choices <- unique(colData(dat())[[input$subpathway_filter]])
+  # Update the selectInput for subpathway_box_filter_line with the selected values from colData(dat())
+  updateSelectInput(session, "subpathway_filter_val", choices = choices)
+})
+```
+
+```{r ui-subpathway_boxplots}
+#| title: Subpathway Boxplots
+
+actionButton("generateSubpathBox", "Create Boxplot",
+             icon("paper-plane"),
+             style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
+
+plotOutput("subpathway_boxplot")
+
+```
+
+```{r server-subpathway_boxplot}
+#| context: server
+
+# When generateSubpathBox is clicked, create subpathway_boxplot
+observeEvent(input$generateSubpathBox, {
+  req(dat())
+  
+  # Get the selected values from the inputs
+  subpathway_var <- input$subpathway_var
+  subpathway_subpath <- input$subpathway_subpath
+  subpathway_treat <- input$subpathway_treat
+  subpathway_block <- input$subpathway_block
+  subpathway_chemName <- input$subpathway_chemName
+  subpathway_filter_val <- input$subpathway_filter_val
+  
+  
+  # Create the boxplot
+  if(input$subpathway_filter == "None"){
+    output$subpathway_boxplot <- renderPlot({
+      subpathway_boxplots(dat(),
+                    subpathway = subpathway_subpath,
+                    block_var = !!sym(subpathway_block),
+                    treat_var = !!sym(subpathway_treat),
+                    Assay = "normalized",
+                    CHEMICAL_NAME = subpathway_chemName,
+                    SUB_PATHWAY = subpathway_var)
+    })
+  } else{
+    output$subpathway_boxplot <- renderPlot({
+      
+      # Create a filter expression
+      # Dynamically create filter expression
+      d_filtered <- dat()[,colData(dat())[[input$subpathway_filter]] == subpathway_filter_val]
+      
+      subpathway_boxplots(dat(),
+                    subpathway = subpathway_subpath,
+                    block_var = !!sym(subpathway_block),
+                    treat_var = !!sym(subpathway_treat),
+                    Assay = "normalized",
+                    CHEMICAL_NAME = subpathway_chemName,
+                    SUB_PATHWAY = subpathway_var)
+      })
+  }
+})
+
+
+```
+
+
+
+```{r ui-subpathway_lineplots}
+#| title: Subpathway Lineplots
+
+actionButton("generateSubpathLine", "Create Lineplot",
+               icon("paper-plane"),
+               style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
+
+plotOutput("subpathway_lineplot")
+
+```
+
+
+```{r server-subpathway_lineplot}
+#| context: server
+
+# When generateSubpathLine is clicked, create subpathway_lineplot
+observeEvent(input$generateSubpathLine, {
+  req(dat())
+
+  # Get a local copy of the data
+  d <- dat()
+
+  # If example_data is selected, make TIME1 numeric
+  if (input$example_data == "yes") {
+    d$TIME1 <- as.numeric(factor(d$TIME1,
+      levels = c("PreSymp", "Onset", "End")
+    ))
+  }
+
+  # Inputs
+  subpathway_var <- input$subpathway_var
+  subpathway_subpath <- input$subpathway_subpath
+  subpathway_treat <- input$subpathway_treat
+  subpathway_block <- input$subpathway_block
+  subpathway_chemName <- input$subpathway_chemName
+  subpathway_filter_val <- input$subpathway_filter_val
+
+  # Conditionally render lineplot
+  if (input$subpathway_filter == "None") {
+    output$subpathway_lineplot <- renderPlot({
+      subpathway_lineplots(d,
+        subpathway = subpathway_subpath,
+        block_var = !!sym(subpathway_block),
+        treat_var = !!sym(subpathway_treat),
+        Assay = "normalized",
+        CHEMICAL_NAME = subpathway_chemName,
+        SUB_PATHWAY = subpathway_var
+      )
+    })
+  } else {
+    
+    output$subpathway_lineplot <- renderPlot({
+      
+      # Create filtered data
+      d_filtered <- d[,colData(d)[[input$subpathway_filter]] == subpathway_filter_val]
+      
+      # Create Line Plot
+      subpathway_lineplots(d_filtered,
+        subpathway = subpathway_subpath,
+        block_var = !!sym(subpathway_block),
+        treat_var = !!sym(subpathway_treat),
+        Assay = "normalized",
+        CHEMICAL_NAME = subpathway_chemName,
+        SUB_PATHWAY = subpathway_var
+      )
+    })
+  }
+})
+
+```
+
+
+
+
+
+
+
+
+
+
+

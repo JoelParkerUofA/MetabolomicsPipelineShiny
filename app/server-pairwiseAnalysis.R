@@ -48,8 +48,9 @@ observeEvent(input$generatePairwise, {
     )
     
     # Create the heatmap
-    met_p_heatmap(analysis, dat,
-                  interactive = TRUE, show_rownames = FALSE,
+    met_p_heatmap(analysis, dat(),
+                  interactive = TRUE,
+                  show_rownames = FALSE,
                   plotlyTitle = "",
                   main = ""
     )

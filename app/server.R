@@ -11,6 +11,8 @@ shinyServer(function(input, output, session) {
   source("server-subpathwayAnalysis.R", local = TRUE)
   
   source("server-pairwiseAnalysis.R", local = TRUE)
+  
+  source("source-subpathway_boxplots.R", local = TRUE)
 
 }
 )
