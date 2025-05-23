@@ -1,0 +1,88 @@
+---
+title: "MetabolomicsPipeline Report"
+output:
+  html_document:
+    theme: cerulean
+    toc: yes
+    toc_float:
+      collapsed: true
+    code_folding: hide
+params: 
+  dat: !r MetabolomicsPipeline::demoDat
+  includedVarsDist: !r c("GROUP_NAME", "TIME1")
+  stratVarDist: !r c("Gender")
+  pcaColor: !r c("Gender")
+  metsNumber: !r 50
+  groupVars: !r c("GROUP_NAME", "TIME1")
+  stratVar: !r c("Gender")
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MetabolomicsPipeline)
+library(table1)
+library(SummarizedExperiment)
+library(dplyr)
+```
+
+
+# Introduction
+
+This report provides a summary of the metabolomics data analysis using MetabolomicsPipeline dashboard. In this 
+report, we include an exploratory data analysis, subpathway analsysis, pairwise analysis
+and subpathway plots. The experiment includes a total of `r nrow(colData(params$dat))` samples and `r nrow(rowData(params$dat))` metabolites. If using the MetabolomicsPipeline dashboard for preprocessing, 
+the peak data is median standardized, min value imputed, and log transformed for the downstream analysis.
+
+```{r load-data}
+
+# Create table1
+form <- as.formula(
+    if(params$stratVarDist == "None"){
+      paste0("~ ", paste(params$includedVarsDist, collapse = " + "))
+    } else {
+      paste0("~ ", paste(params$includedVarsDist, collapse = " + "), " | ",
+             params$stratVarDist)
+    }
+    )
+  
+
+table1(form, data = colData(params$dat))
+```
+
+
+# Exploratory Data Analysis
+
+## PCA
+In general, Principal component analysis (PCA) reduces the number of variables in a dataset while preserving as much information from the data as possible. At a high level, PCA is constructed such that the first principal component (PC) accounts for the largest amount of variance within the data. The second PC accounts for the largest remaining variance, and so on. Additionally, each of the PCs produced by PCA is uncorrelated with the other principal components. PCA can allow us to visualize sources of variation in the data.
+
+```{r pca}
+# PCA plot
+# Define PCA label from metadata
+meta_var <- params$pcaColor
+
+# Run PCA
+pca <- metabolite_pca(params$dat,
+    meta_var = meta_var
+)
+
+
+# Show PCA
+pca
+```
+
+
+## Heatmap
+
+For our heatmap, the x-axis will be the samples, and the y-axis will be the metabolites. The values determining the colors will be the normalized peak values for each metabolite in each observation. We can group the observations by the experimental conditions. Grouping the experimental conditions in a heatmap is another way of visualizing sources of variation.
+
+
+```{r heatmap, message=FALSE}
+metabolite_heatmap(params$dat,
+                        top_mets = params$metsNumber,
+                        group_vars = params$groupVars,
+                        strat_var = params$stratVar,
+                        caption = "",
+                        Assay = "normalized",
+                        !!!syms(params$groupVars))
+```

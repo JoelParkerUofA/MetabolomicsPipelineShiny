@@ -31,8 +31,12 @@ library(knitr)
 ```
 
 
+# About
+This is where you can add a description of the app. You can use markdown to format the text.
 
 # Data 
+
+
 ## {.sidebar}
 ```{r}
 #| title: Data Loading
@@ -124,7 +128,44 @@ observeEvent(input$submit_data,{
 ```
 
 
-## {.tabset}
+##
+
+### Data Loading Info
+
+::: {.callout-tip collapse="true"}
+# Data Loading Info
+
+::: {.panel-tabset}
+# Data
+
+
+Metabolomics experiments leverage multiple data tables for analysis. The datasets needed for the downstream analysis are:
+
+  1.) Sample metadata
+  
+   - Must contain a column with sample names (e.g. PARENT_SAMPLE_NAME) corresponding to the sample names in the peak data.
+    
+  
+  2.) Chemical annotation
+  
+  - Must contain a column with chemical IDs (e.g. CHEM_ID) corresponding to the chemical IDs in the peak data.
+
+  3.) Peak data (samples x metabolites).
+  
+# Preprocessing
+
+The MetabolomicsPipline contains tools for processing the peak data to prepare it for downstream analysis. The following preprocessing steps are used:
+  
+  - Median standardization
+  - Minimum value imputation
+  - Log transformation
+  
+If you are using your own data, you can choose to use the MetabolomicsPipelines preprocessing or upload your own normalized data. If you choose to upload your own normalized data, it must be in the same format as the peak data (samples x metabolites).
+:::
+
+:::
+
+### {.tabset}
 
 ```{r}
 #| title: Sample Metadata
@@ -250,6 +291,18 @@ observeEvent(input$gen_dist_table,{
 ```
 
 # Exploratory Analysis
+
+## Exploratory Information
+
+:::{.callout-tip collapse="true" icon="false"}
+# Exploratory Analysis Information
+:::{.panel-tabset}
+# PCA
+
+# Heatmap
+
+:::
+:::
 
 ## PCA
 
@@ -377,7 +430,7 @@ observeEvent(input$generateHeatmap, {
                         top_mets = metsNumber,
                         group_vars = groupVars,
                         strat_var = NULL,
-                        caption = "Heatmap Arranged By Group and TIME",
+                        caption = "",
                         Assay = "normalized",
                         !!!syms(groupVars))
     } else{
@@ -389,7 +442,7 @@ observeEvent(input$generateHeatmap, {
                         top_mets = metsNumber,
                         group_vars = groupVars,
                         strat_var = NULL,
-                        caption = paste0("Heatmap Arranged By Group and TIME (", input$boxplot_stratum, ")"),
+                        caption = input$boxplot_stratum,
                         Assay = "normalized",
                         !!!syms(groupVars))
     }
