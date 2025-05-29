@@ -233,7 +233,7 @@ Generate Distribution Table
 <div class="cell-output-display no-overflow-x">
 <div class="shiny-panel-conditional" data-display-if="input.example_data=='user_data'" data-ns-prefix="">
 <div class="form-group shiny-input-container">
-<label class="control-label" id="sample_metadata-label" for="sample_metadata">Upload Sample Metadata</label>
+<label class="control-label" id="sample_metadata-label" for="sample_metadata">Upload Sample Metadata (.csv)</label>
 <div class="input-group">
 <label class="input-group-btn input-group-prepend">
 <span class="btn btn-default btn-file">
@@ -255,7 +255,7 @@ Browse...
 </div>
 </div>
 <div class="form-group shiny-input-container">
-<label class="control-label" id="chemAnno-label" for="chemAnno">Upload Chemical Annotation Data</label>
+<label class="control-label" id="chemAnno-label" for="chemAnno">Upload Chemical Annotation Data (.csv)</label>
 <div class="input-group">
 <label class="input-group-btn input-group-prepend">
 <span class="btn btn-default btn-file">
@@ -277,7 +277,7 @@ Browse...
 </div>
 </div>
 <div class="form-group shiny-input-container">
-<label class="control-label" id="peak_data-label" for="peak_data">Upload Peak Data</label>
+<label class="control-label" id="peak_data-label" for="peak_data">Upload Peak Data (.csv)</label>
 <div class="input-group">
 <label class="input-group-btn input-group-prepend">
 <span class="btn btn-default btn-file">
@@ -569,7 +569,7 @@ grid-auto-rows: minmax(0, 1fr);">
 </div>
 <div class="cell-output-display no-overflow-x">
 <div class="form-group shiny-input-container">
-<label class="control-label" id="subpath_metabolite-label" for="subpath_metabolite">Select Metabolite ID Name</label>
+<label class="control-label" id="subpath_metabolite-label" for="subpath_metabolite">Select Metabolite Name Variable</label>
 <div>
 <select id="subpath_metabolite" class="shiny-input-select"></select>
 <script type="application/json" data-for="subpath_metabolite" data-nonempty="">{"plugins":["selectize-plugin-a11y"]}</script>
@@ -813,14 +813,40 @@ library(MetabolomicsPipeline)
 library(table1)
 library(SummarizedExperiment)
 library(reshape2)
-
+library(tibble)
 # for EDA report
 library(reshape2)
 library(knitr)
 </script>
  
 <script type="application/shiny-prerendered" data-context="server">
-## Upload data
+#############################
+## Update selectInput for sample_names, chem_id
+#################################
+observeEvent(input$sample_metadata, {
+  req(input$sample_metadata)
+  
+  # Update the selectInput for sample_names with the column names of the uploaded sample metadata
+  updateSelectInput(session, 
+                    inputId = "sample_names",
+                    choices = names(read.csv(input$sample_metadata$datapath)),
+                    selected = names(read.csv(input$sample_metadata$datapath))[1])
+})
+
+observeEvent(input$chemAnno, {
+  req(input$chemAnno)
+  
+  # Update the selectInput for chem_id with the column names of the uploaded chemical annotation data
+  updateSelectInput(session, 
+                    inputId = "chem_id",
+                    choices = names(read.csv(input$chemAnno$datapath)),
+                    selected = names(read.csv(input$chemAnno$datapath))[1])
+})
+
+
+###########################################
+## Upload data when submit_data is clicked
+###########################################
 dat <- eventReactive(input$submit_data, {
   if(input$example_data == 'yes'){
     data("demoSampleMeta", package = "MetabolomicsPipeline")
@@ -838,7 +864,57 @@ dat <- eventReactive(input$submit_data, {
     dat <- log_transformation(dat, assay = "min_impute")
     
     dat
+  } else {
+    
+    # If preprocessing is selected, use MetabolomicsPipeline preprocessing
+    if(input$preprocessing == "Yes"){
+      # Get demo sample metadata
+      sampleMeta <- read.csv(input$sample_metadata$datapath, check.names = FALSE)
+      
+      # Get demo chemical annotation file
+      chem_anno <- read.csv(input$chemAnno$datapath, check.names = FALSE)
+      
+      # Get demo peak data
+      peak <- read.csv(input$peak_data$datapath, check.names = FALSE)
+      
+      # Load data
+      dat <- create_met_se(chemical_annotation = chem_anno,
+                         sample_metadata = sampleMeta,
+                         peak_data = peak,
+                         chemical_id = input$chem_id,
+                         sample_names = input$sample_names)
+      
+      dat <- median_standardization(dat, assay = "peak")
+      dat <- min_val_impute(dat, assay = "median_std") 
+      dat <- log_transformation(dat, assay = "min_impute")
+      
+    } else {
+      # Get demo sample metadata
+      sampleMeta <- read.csv(input$sample_metadata$datapath, check.names = FALSE)
+      
+      # Get demo chemical annotation file
+      chem_anno <- read.csv(input$chemAnno$datapath, check.names = FALSE)
+      
+      # Get demo peak data
+      peak <- read.csv(input$peak_data$datapath, check.names = FALSE)
+      # If preprocessing is not selected, use the uploaded normalized data
+      normalizedData <- read.csv(input$normalizedData$datapath) %>%
+        column_to_rownames(var = input$chem_id)
+      
+      # Create a SummarizedExperiment object with the normalized data
+      dat <- create_met_se(chemical_annotation = chem_anno,
+                         sample_metadata = sampleMeta,
+                         peak_data = peak,
+                         chemical_id = input$chem_id,
+                         sample_names = input$sample_names)
+      
+      # Add normalized data
+      dat <- assay(dat, "normalized") <- as.matrix(normalizedData[rownames(dat), ])
+    }
+    
+    dat
   }
+    
 })
 
 
@@ -990,7 +1066,7 @@ observeEvent(input$generateHeatmap, {
                         top_mets = metsNumber,
                         group_vars = groupVars,
                         strat_var = NULL,
-                        caption = "Heatmap Arranged By Group and TIME",
+                        caption = "",
                         Assay = "normalized",
                         !!!syms(groupVars))
     } else{
@@ -1002,7 +1078,7 @@ observeEvent(input$generateHeatmap, {
                         top_mets = metsNumber,
                         group_vars = groupVars,
                         strat_var = NULL,
-                        caption = paste0("Heatmap Arranged By Group and TIME (", input$boxplot_stratum, ")"),
+                        caption = input$boxplot_stratum,
                         Assay = "normalized",
                         !!!syms(groupVars))
     }
@@ -1067,41 +1143,45 @@ observeEvent(input$generateSubpathAnalysis, {
   metabolite <- input$subpath_metabolite
   
   # run subpathway analsysis
-  analysis <- subpathway_analysis(dat(),
-                                  treat_var = treat,
-                                  block_var = block,
-                                  strat_var = strat,
-                                  Assay = "normalized",
-                                  subPathwayName = subpathway,
-                                  superPathwayName = superpathway,
-                                  chemName = metabolite
+  subpath_analysis <- reactive(
+    withProgress(message = "Running Subpathway Analysis ...", {
+      subpathway_analysis(dat(),
+      treat_var = treat,
+      block_var = block,
+      strat_var = strat,
+      Assay = "normalized",
+      subPathwayName = subpathway,
+      superPathwayName = superpathway,
+      chemName = metabolite)
+    })
   )
   
-  output$subpath_by_model <- renderUI({
-    req(analysis)
+    output$subpath_by_model <- renderUI({
+    req(subpath_analysis())
     
-    HTML(subpath_by_model(analysis))
+    HTML(subpath_by_model(subpath_analysis()))
   })
   
   output$subpath_within_superpath <- renderUI({
-    req(analysis)
+    req(subpath_analysis())
     
-    HTML(subpath_within_superpath(analysis))
+    HTML(subpath_within_superpath(subpath_analysis()))
   })
   output$met_within_subpathway <- renderUI({
-    req(analysis)
+    req(subpath_analysis())
     req(input$subpath_subpathway_plot)
     
-    tables <- met_within_sub(analysis,
+    tables <- met_within_sub(subpath_analysis(),
                              subpathway = input$subpath_subpathway_plot
     )
     # Combine and return as HTML
     HTML(paste(tables, collapse = "<br><br>"))
   })
+
+
   
 })
   
-
 </script>
  
 <script type="application/shiny-prerendered" data-context="server">
@@ -1274,11 +1354,18 @@ observeEvent(input$subpathway_filter, {
 observeEvent(input$generateSubpathBox, {
   req(dat())
   
+  # If example_data is selected, make TIME1 factor
+  if (input$example_data == "yes") {
+    d$TIME1 <- factor(dat()$TIME1,
+      levels = c("PreSymp", "Onset", "End")
+    )
+  }
+  
   # Get the selected values from the inputs
   subpathway_var <- input$subpathway_var
   subpathway_subpath <- input$subpathway_subpath
   subpathway_treat <- input$subpathway_treat
-  subpathway_block <- input$subpathway_block
+  subpathway_block <- if(input$subpathway_block=="None"){ NULL} else {input$subpathway_block}
   subpathway_chemName <- input$subpathway_chemName
   subpathway_filter_val <- input$subpathway_filter_val
   
@@ -1286,7 +1373,7 @@ observeEvent(input$generateSubpathBox, {
   # Create the boxplot
   if(input$subpathway_filter == "None"){
     output$subpathway_boxplot <- renderPlot({
-      subpathway_boxplots(dat(),
+      subpathway_boxplots(d,
                     subpathway = subpathway_subpath,
                     block_var = !!sym(subpathway_block),
                     treat_var = !!sym(subpathway_treat),
@@ -1294,14 +1381,14 @@ observeEvent(input$generateSubpathBox, {
                     CHEMICAL_NAME = subpathway_chemName,
                     SUB_PATHWAY = subpathway_var)
     })
-  } else{
+  } else {
     output$subpathway_boxplot <- renderPlot({
       
       # Create a filter expression
       # Dynamically create filter expression
-      d_filtered <- dat()[,colData(dat())[[input$subpathway_filter]] == subpathway_filter_val]
+      d_filtered <- dat[,colData(d)[[input$subpathway_filter]] == subpathway_filter_val]
       
-      subpathway_boxplots(dat(),
+      subpathway_boxplots(d_filtered,
                     subpathway = subpathway_subpath,
                     block_var = !!sym(subpathway_block),
                     treat_var = !!sym(subpathway_treat),
