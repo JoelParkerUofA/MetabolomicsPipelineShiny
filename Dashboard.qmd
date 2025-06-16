@@ -10,6 +10,7 @@ server: shiny
 #| context: setup
 # for shiny
 library(bs4Dash)
+library(bslib)
 library(shiny)
 library(DT)
 library(plotly)
@@ -847,8 +848,6 @@ selectInput('subpathway_subpath', "Select Subpathway",
 
 selectInput('subpathway_treat', "Select Treatment Variable",
                          choices = NULL, multiple = TRUE)
-selectInput('subpathway_block', "X Axis",
-                         choices = NULL, selected = NULL)
 
 selectInput("subpathway_chemName", "Metabolite Name Variable (From Chemical Annotation)",
                          choices = NULL, selected = NULL)
@@ -942,6 +941,10 @@ observeEvent(input$subpathway_filter, {
 ```{r ui-subpathway_boxplots}
 #| title: Subpathway Boxplots
 
+selectInput("subpathway_box_X", "Choose X-axis Variable",
+             choices = c("None" = "None"),
+             selected = "none")
+
 actionButton("generateSubpathBox", "Create Boxplot",
              icon("paper-plane"),
              style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
@@ -953,9 +956,24 @@ plotOutput("subpathway_boxplot")
 ```{r server-subpathway_boxplot}
 #| context: server
 
+# When data is input into the app, update subpathway_line_X choices
+observeEvent(input$submit_data, {
+  req(dat())
+  
+  choices <- names(colData(dat()))
+  
+  updateSelectInput(session,
+                    inputId = "subpathway_box_X",
+                    choices = c(choices),
+                    selected = if(input$example_data == "yes") "TIME1")
+})
+
+
 # When generateSubpathBox is clicked, create subpathway_boxplot
 observeEvent(input$generateSubpathBox, {
   req(dat())
+  
+  d <- dat()
   
   # If example_data is selected, make TIME1 factor
   if (input$example_data == "yes") {
@@ -968,7 +986,7 @@ observeEvent(input$generateSubpathBox, {
   subpathway_var <- input$subpathway_var
   subpathway_subpath <- input$subpathway_subpath
   subpathway_treat <- input$subpathway_treat
-  subpathway_block <- if(input$subpathway_block=="None"){ NULL} else {input$subpathway_block}
+  subpathway_block <- input$subpathway_box_X
   subpathway_chemName <- input$subpathway_chemName
   subpathway_filter_val <- input$subpathway_filter_val
   
@@ -976,6 +994,7 @@ observeEvent(input$generateSubpathBox, {
   # Create the boxplot
   if(input$subpathway_filter == "None"){
     output$subpathway_boxplot <- renderPlot({
+        
       subpathway_boxplots(d,
                     subpathway = subpathway_subpath,
                     block_var = !!sym(subpathway_block),
@@ -983,14 +1002,15 @@ observeEvent(input$generateSubpathBox, {
                     Assay = "normalized",
                     CHEMICAL_NAME = subpathway_chemName,
                     SUB_PATHWAY = subpathway_var)
+      
     })
   } else {
     output$subpathway_boxplot <- renderPlot({
       
       # Create a filter expression
       # Dynamically create filter expression
-      d_filtered <- dat[,colData(d)[[input$subpathway_filter]] == subpathway_filter_val]
-      
+      d_filtered <- d[,colData(d)[[input$subpathway_filter]] == subpathway_filter_val]
+  
       subpathway_boxplots(d_filtered,
                     subpathway = subpathway_subpath,
                     block_var = !!sym(subpathway_block),
@@ -998,6 +1018,7 @@ observeEvent(input$generateSubpathBox, {
                     Assay = "normalized",
                     CHEMICAL_NAME = subpathway_chemName,
                     SUB_PATHWAY = subpathway_var)
+      
       })
   }
 })
@@ -1010,6 +1031,10 @@ observeEvent(input$generateSubpathBox, {
 ```{r ui-subpathway_lineplots}
 #| title: Subpathway Lineplots
 
+selectInput("subpathway_line_X", "Choose X-Axis Variable",
+             choices = c("None" = "None"),
+             selected = "none")
+
 actionButton("generateSubpathLine", "Create Lineplot",
                icon("paper-plane"),
                style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
@@ -1021,6 +1046,19 @@ plotOutput("subpathway_lineplot")
 
 ```{r server-subpathway_lineplot}
 #| context: server
+
+
+# When data is input into the app, update subpathway_line_X choices
+observeEvent(input$submit_data, {
+  req(dat())
+  
+  choices <- names(colData(dat()))
+  
+  updateSelectInput(session,
+                    inputId = "subpathway_line_X",
+                    choices = c(choices),
+                    selected = if(input$example_data == "yes") "TIME1")
+})
 
 # When generateSubpathLine is clicked, create subpathway_lineplot
 observeEvent(input$generateSubpathLine, {
@@ -1040,7 +1078,7 @@ observeEvent(input$generateSubpathLine, {
   subpathway_var <- input$subpathway_var
   subpathway_subpath <- input$subpathway_subpath
   subpathway_treat <- input$subpathway_treat
-  subpathway_block <- input$subpathway_block
+  subpathway_block <- input$subpathway_line_X
   subpathway_chemName <- input$subpathway_chemName
   subpathway_filter_val <- input$subpathway_filter_val
 
@@ -1079,8 +1117,35 @@ observeEvent(input$generateSubpathLine, {
 ```
 
 
+# Download Report and Data
 
+###
 
+```{r ui-download-report}
+#| title: Download Report
+
+checkboxInput("includePCA", "Exploratory PCA Plot",
+                         value = TRUE)
+checkboxInput("includeHeatmap", "Exploratory Heatmap",
+                         value = TRUE)
+
+checkboxInput("includeSubpathway", "Subpathway Analysis",
+                         value = TRUE)
+checkboxInput("includePairwise", "Pairwise Analysis",
+                         value = TRUE)
+checkboxInput("includeSubpathBox", "Subpathway Boxplots",
+                         value = TRUE)
+checkboxInput("includeSubpathLine", "Subpathway Lineplots",
+                         value = TRUE)
+
+downloadButton("downloadReport", "Download Report",
+               style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
+
+br()
+
+downloadButton("downloadData", "Download Data",
+               style = "color: #fff; background-color: #CD0000; border-color: #9E0000; width: 25%")
+```
 
 
 
