@@ -528,7 +528,7 @@ observeEvent(input$generateHeatmap, {
 
 ```
 
-# Subpatway Analysis
+# Subpathway Analysis
 
 ## {.sidebar}
 
@@ -629,6 +629,9 @@ observeEvent(input$subpath_subpathway, {
 })
 
 
+# Store the analysis result as a reactiveVal
+subpath_analysis <- reactiveVal(NULL)
+
 # When generateSubpathAnalysis is clicked, run the subpathway analysis
 observeEvent(input$generateSubpathAnalysis, {
   req(dat())
@@ -642,8 +645,7 @@ observeEvent(input$generateSubpathAnalysis, {
   metabolite <- input$subpath_metabolite
   
   # run subpathway analsysis
-  subpath_analysis <- reactive(
-    withProgress(message = "Running Subpathway Analysis ...", {
+  subpath_analysis_results <- withProgress(message = "Running Subpathway Analysis ...", {
       subpathway_analysis(dat(),
       treat_var = treat,
       block_var = block,
@@ -653,24 +655,26 @@ observeEvent(input$generateSubpathAnalysis, {
       superPathwayName = superpathway,
       chemName = metabolite)
     })
-  )
+  
+  # Set the result of the analysis
+  subpath_analysis(subpath_analysis_results)  # Set the reactiveVal
   
     output$subpath_by_model <- renderUI({
-    req(subpath_analysis())
     
-    HTML(subpath_by_model(subpath_analysis()))
+    
+    HTML(subpath_by_model(subpath_analysis_results))
   })
   
   output$subpath_within_superpath <- renderUI({
-    req(subpath_analysis())
+    req(subpath_analysis_results)
     
-    HTML(subpath_within_superpath(subpath_analysis()))
+    HTML(subpath_within_superpath(subpath_analysis_results))
   })
   output$met_within_subpathway <- renderUI({
-    req(subpath_analysis())
+    req(subpath_analysis_results)
     req(input$subpath_subpathway_plot)
     
-    tables <- met_within_sub(subpath_analysis(),
+    tables <- met_within_sub(subpath_analysis_results,
                              subpathway = input$subpath_subpathway_plot
     )
     # Combine and return as HTML
@@ -1148,7 +1152,47 @@ downloadButton("downloadData", "Download Data",
 ```
 
 
+```{r server-downloadreport}
+#| context: server
+output$downloadReport <- downloadHandler(
+  filename = function() {
+    paste("MetabolomicsPipeline_Report_", Sys.Date(), ".html", sep = "")
+  },
+  content = function(file) {
+    # Create a temporary directory to store the report
+    tempReport <- file.path(tempdir(), "report.Rmd")
+    
+    # Copy the Rmd template to the temporary directory
+    file.copy("Report/Report.Rmd", tempReport, overwrite = TRUE)
+    
+    params <- list(dat = dat(),
+                  includedVarsDist = input$includedVarsDist,
+                  stratVarDist = input$stratVarDist,
+                  pcaColor = input$pcaColor,
+                  metsNumber = input$metsNumber,
+                  groupVars = input$groupVars,
+                  stratVar = input$stratVar,
+                  subpath_analysis = subpath_analysis(),
+                  subpath_selection = input$subpath_subpathway_plot,
+                  pairwise_analysis = analysis(),
+                  CHEMICAL_NAME = input$subpath_metabolite,
+                  SUB_PATHWAY = input$subpathway_var,
+                  subpathway_subpath = input$subpathway_subpath,
+                  subpathway_treat = input$subpathway_treat,
+                  subpathway_box_X = input$subpathway_box_X,
+                  subpathway_line_X = input$subpathway_line_X,
+                  subpathway_filter = input$subpathway_filter,
+                  DEMO = FALSE)
+    
+    # Render the report using rmarkdown
+    rmarkdown::render(tempReport,
+                      output_file = file,
+                      params = params,
+                      envir = new.env(parent = globalenv()))
+  }
+)
 
+```
 
 
 

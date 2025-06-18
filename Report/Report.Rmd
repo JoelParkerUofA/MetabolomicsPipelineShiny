@@ -22,7 +22,8 @@ params:
   SUB_PATHWAY: !r c("SUB_PATHWAY")
   subpathway_subpath:  !r c("Lactoyl Amino Acid")
   subpathway_treat: !r c("GROUP_NAME")
-  subpathway_block: !r c("TIME1")
+  subpathway_box_X: !r c("TIME1")
+  subpathway_line_X: !r c("TIME1")
   subpathway_filter: !r c("Gender")
   DEMO: !r TRUE
 ---
@@ -268,7 +269,7 @@ dat <- params$dat
   subpathway_var <- params$SUB_PATHWAY
   subpathway_subpath <- params$subpathway_subpath
   subpathway_treat <- params$subpathway_treat
-  subpathway_block <- params$subpathway_block
+  subpathway_block <- params$subpathway_box_X
   subpathway_chemName <- params$CHEMICAL_NAME
   subpathway_filter <- params$subpathway_filter
   
@@ -324,7 +325,7 @@ if(params$DEMO==TRUE){
   subpathway_var <- params$SUB_PATHWAY
   subpathway_subpath <- params$subpathway_subpath
   subpathway_treat <- params$subpathway_treat
-  subpathway_block <- params$subpathway_block
+  subpathway_block <- params$subpathway_line_X
   subpathway_chemName <- params$CHEMICAL_NAME
   subpathway_filter <- params$subpathway_filter
 
